@@ -10,7 +10,6 @@ __pycache__/
 
 # C extensions
 *.so
-
 # Distribution / packaging
 .Python
 build/
@@ -140,3 +139,4 @@ dmypy.json
 # End of https://www.toptal.com/developers/gitignore/api/python
 
 go-cqhttp/
+points.json
