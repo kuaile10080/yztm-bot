@@ -1,15 +1,19 @@
-from msilib.schema import Upgrade
+from asyncio import events
 from nonebot import on_regex,on_command
 from nonebot.adapters import Event
 from nonebot.adapters.onebot.v11 import Bot, Message, MessageSegment, GroupMessageEvent, PrivateMessageEvent, exception
 
 from src.libraries.userenvs import *
 
-import json,random,os,time
+import json,random,os,time,re
 
-# data = Bot.call_api('get_group_info',**{
-#     'group_id': 474624734
-# })
+points_json = {}
+
+def savejson():
+    file = open(points_path,"w",encoding='utf-8')
+    json.dump(points_json,file)
+    file.close()
+
 #----------加载积分文件----------
 points_path = 'src/static/points.json'
 if os.path.exists(points_path):
@@ -23,12 +27,9 @@ if os.path.exists(points_path):
         filebkp.write(file.read())
         file.close()
         filebkp.close()
-        points_json = {}
 else:
     points_json = {}
-    file = open(points_path,"w",encoding='utf-8')
-    json.dump(points_json,file)
-    file.close()
+    savejson()
 
 
 #----------匹配大于等于5汉字的消息并概率触发积分----------
@@ -40,9 +41,9 @@ async def _getpoints(bot: Bot, event: GroupMessageEvent):
     if random.random() < (points_probability/100):
         qq = str(event.get_user_id())
         if qq not in points_json.keys():
-            points_json[qq]={'total':0,'today':0,'upgrade':0}
-        if points_json[qq]['upgrade'] != int(time.strftime('%Y%m%d')):
-            points_json[qq]['upgrade'] = int(time.strftime('%Y%m%d'))
+            points_json[qq]={'total':0,'today':0,'update_date':0}
+        if points_json[qq]['update_date'] != int(time.strftime('%Y%m%d')):
+            points_json[qq]['update_date'] = int(time.strftime('%Y%m%d'))
             points_json[qq]['total'] += 1
             points_json[qq]['today'] = 1
         elif points_json[qq]['today'] < daily_max:
@@ -50,9 +51,7 @@ async def _getpoints(bot: Bot, event: GroupMessageEvent):
             points_json[qq]['today'] += 1
         else:
             pass
-    file = open(points_path,"w",encoding='utf-8')
-    json.dump(points_json,file)
-    file.close()
+    savejson()
 
 #----------私聊查询积分----------
 querypoint = on_command("查询积分", aliases={"查分","积分"})
@@ -67,14 +66,106 @@ async def _querypoint(bot: Bot, event: PrivateMessageEvent):
         except Exception as e:
             print(repr(e))
     else:
-        if points_json[qq]['upgrade'] != int(time.strftime('%Y%m%d')):
+        if points_json[qq]['update_date'] != int(time.strftime('%Y%m%d')):
             temp = 0
         else:
             temp = points_json[qq]['today']
-        msg = '您至今天的总积分为：' + str(points_json[qq]['total']) + '\n' + '您今天获得的积分为：' + str(points_json[qq]['today'])
+        msg = '您的总积分为：' + str(points_json[qq]['total']) + '\n' + '今天通过群聊获得的积分为：' + str(temp)
         try:
             await querypoint.finish(Message(msg))
         except exception.ActionFailed:
             pass
         except Exception as e:
             print(repr(e))
+
+#----------设置管理者匹配规则----------
+async def superuser_checker(bot: Bot, event: Event) -> bool:
+    return str(event.get_user_id()) in superusers
+
+#----------管理者查询成员积分----------
+querypointsuper = on_command("查成员分",rule = superuser_checker)
+@querypointsuper.handle()
+async def _querypointsuper(bot: Bot, event: Event):
+    msg = str(event.get_message()).split()
+    if len(msg)==2:
+        try:
+            qq = str(int(msg[1]))
+        except:
+            await querypointsuper.finish(Message("指令格式有误"))
+    else:
+        await querypointsuper.finish(Message("指令格式有误"))
+
+    if qq not in points_json.keys():
+        try:
+            await querypointsuper.finish(Message("暂无积分记录"))
+        except exception.ActionFailed:
+            pass
+        except Exception as e:
+            print(repr(e))
+    else:
+        if points_json[qq]['update_date'] != int(time.strftime('%Y%m%d')):
+            temp = 0
+        else:
+            temp = points_json[qq]['today']
+        msg = qq + '的总积分为：' + str(points_json[qq]['total']) + '\n' + '今天通过群聊获得的积分为：' + str(temp)
+        try:
+            await querypointsuper.finish(Message(msg))
+        except exception.ActionFailed:
+            pass
+        except Exception as e:
+            print(repr(e))
+
+
+#----------单群员加减积分----------
+single_update = on_command("积分变更", rule = superuser_checker, priority = 10, block = True)
+@single_update.handle()
+async def _single_update(bot:Bot,event:Event):
+    msg = str(event.get_message()).split()
+    if len(msg)==3:
+        try:
+            qq = str(int(msg[1]))
+            points = int(msg[2])
+        except:
+            await single_update.finish(Message("指令格式有误"))
+    else:
+        await single_update.finish(Message("指令格式有误"))
+    if qq in points_json:
+        points_json[qq]['total'] += points
+        savejson()
+    else:
+        points_json[qq]={'total':points,'today':0,'update_date':0}
+        savejson()
+    msg = "群成员" + qq + "的积分"
+    if points > 0:
+        msg += '+'
+    msg += str(points)
+    msg += '。\n目前总积分为：'
+    msg += str(points_json[qq]['total'])
+    await single_update.finish(Message(msg))
+
+#----------全体群员加减积分----------
+all_update = on_command("全体积分变更", rule = superuser_checker, priority = 10, block = True)
+@all_update.handle()
+async def _all_update(bot:Bot,event:GroupMessageEvent):
+    msg = str(event.get_message()).split()
+    if len(msg)==2:
+        try:
+            points = int(msg[1])
+        except:
+            await all_update.finish(Message("指令格式有误"))
+    else:
+        await all_update.finish(Message("指令格式有误"))
+    group = str(re.match("group_(.+)_(.+)",event.get_session_id()).groups()[0])
+    data = await bot.call_api('get_group_member_list',**{
+        'group_id': group,
+        'no_cache': True
+    })
+    for user in data:
+        qq = str(user['user_id'])
+        if qq in points_json:
+            points_json[qq]['total'] += points
+            savejson()
+        else:
+            points_json[qq]={'total':points,'today':0,'update_date':0}
+            savejson()
+    await all_update.finish(Message("执行成功"))
