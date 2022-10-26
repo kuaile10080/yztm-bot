@@ -34,7 +34,7 @@ else:
 
 #----------匹配大于等于5汉字的消息并概率触发积分----------
 regex = '([\u4e00-\u9fa5](.*)){5}'
-getpoints = on_regex(regex, priority = 200, block = False)
+getpoints = on_regex(regex, priority = 2000, block = False)
 @getpoints.handle()
 async def _getpoints(bot: Bot, event: GroupMessageEvent):
     print("匹配消息成功：" + str(event.get_message()))
@@ -179,9 +179,9 @@ async def _outputcsv(bot: Bot, event: PrivateMessageEvent):
     for qq in points_json:
         content += qq
         content +=","
-        content += points_json[qq]['total']
+        content += str(points_json[qq]['total'])
         content += "\n"
-    file = open(points_path[:-5] + time.strftime('%m%d%H%M%S') + '_save.csv','w',encoding='utf-8')
+    file = open(points_path[:-5] + time.strftime('%m%d%H%M%S') + '_save.csv','w',encoding='gbk')
     file.write(content)
     file.close()
     try:
