@@ -169,3 +169,24 @@ async def _all_update(bot:Bot,event:GroupMessageEvent):
             points_json[qq]={'total':points,'today':0,'update_date':0}
             savejson()
     await all_update.finish(Message("执行成功"))
+
+
+#----------管理者导出全体积分列表----------
+querypointsuper = on_command("导出全体积分列表",rule = superuser_checker)
+@querypointsuper.handle()
+async def _querypointsuper(bot: Bot, event: PrivateMessageEvent):
+    content = "qq,总积分\n"
+    for qq in points_json:
+        content += qq
+        content +=","
+        content += points_json[qq]['total']
+        content += "\n"
+    file = open(points_path[:-5] + time.strftime('%m%d%H%M%S') + '_save.csv','w',encoding='utf-8')
+    file.write(content)
+    file.close()
+    try:
+        await querypointsuper.finish(Message("导出成功，请至bot的src/static/目录下查看最新的csv表格文件"))
+    except exception.ActionFailed:
+        pass
+    except Exception as e:
+        print(repr(e))
