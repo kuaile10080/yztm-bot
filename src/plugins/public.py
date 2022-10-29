@@ -215,7 +215,7 @@ async def _joingroup(bot: Bot,event: Event):
         print("白名单与卡密读取失败")
         return
     qq = str(data["user_id"])
-    key = data['comment']
+    key = data['comment'][-12:]
     if key in CDKEYlist:
         if CDKEYlist[key] == 1:
             await bot.call_api('set_group_add_request',**{
