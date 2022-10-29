@@ -197,36 +197,63 @@ joingroup = on_request()
 async def _joingroup(bot: Bot,event: Event):
     data = eval(event.get_event_description())
     whitellist_path = static_path + str(data['group_id']) + '.txt'
+    CDKEY_path = static_path + 'KEY' + str(data['group_id']) + '.txt'
     whitelist = {}
+    CDKEYlist = {}
     try:
         file = open(whitellist_path,"r",encoding='utf-8')
         for line in file:
             aline = line.strip().split("=")
             whitelist[aline[0]] = int(aline[1])
         file.close()
+        file = open(CDKEY_path,"r",encoding='utf-8')
+        for line in file:
+            aline = line.strip().split("=")
+            CDKEYlist[aline[0]] = int(aline[1])
+        file.close()
     except:
-        print("白名单文件读取失败")
+        print("白名单与卡密读取失败")
         return
     qq = str(data["user_id"])
-    if qq in whitelist:
-        if whitelist[qq] == 1:
+    key = data['comment']
+    if key in CDKEYlist:
+        if CDKEYlist[key] == 1:
             await bot.call_api('set_group_add_request',**{
             'flag': data['flag'],
             'sub_type': data['sub_type'],
             'approve': True
             })
-            whitelist[qq] = 0
-            whiteliststr = ''
-            for qq in whitelist:
-                whiteliststr += qq
-                whiteliststr += "="
-                whiteliststr += str(whitelist[qq])
-                whiteliststr += "\n"
-                file = open(whitellist_path,"w",encoding='utf-8')
-                file.write(whiteliststr)
+            CDKEYlist[key] = 0
+            CDKEYliststr = ''
+            for key in CDKEYlist:
+                CDKEYliststr += key
+                CDKEYliststr += "="
+                CDKEYliststr += str(CDKEYlist[key])
+                CDKEYliststr += "\n"
+                file = open(CDKEY_path,"w",encoding='utf-8')
+                file.write(CDKEYliststr)
                 file.close()
-            print(qq + "加群申请已通过")
-        else:
-            print(qq + "在白名单中，但入群标记已经为0")
+            print(qq + "加群申请已通过卡密方式通过")
     else:
-        print(qq + "不在白名单中")
+        if qq in whitelist:
+            if whitelist[qq] == 1:
+                await bot.call_api('set_group_add_request',**{
+                'flag': data['flag'],
+                'sub_type': data['sub_type'],
+                'approve': True
+                })
+                whitelist[qq] = 0
+                whiteliststr = ''
+                for qq in whitelist:
+                    whiteliststr += qq
+                    whiteliststr += "="
+                    whiteliststr += str(whitelist[qq])
+                    whiteliststr += "\n"
+                    file = open(whitellist_path,"w",encoding='utf-8')
+                    file.write(whiteliststr)
+                    file.close()
+                print(qq + "加群申请已通过白名单方式")
+            else:
+                print(qq + "在白名单中，但入群标记已经为0")
+        else:
+            print(qq + "不在白名单中或卡密错误")
