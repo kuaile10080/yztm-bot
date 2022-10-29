@@ -1,7 +1,7 @@
 from asyncio import events
-from nonebot import on_regex,on_command
+from nonebot import on_regex,on_command,on_request
 from nonebot.adapters import Event
-from nonebot.adapters.onebot.v11 import Bot, Message, MessageSegment, GroupMessageEvent, PrivateMessageEvent, exception
+from nonebot.adapters.onebot.v11 import Bot, Message, GroupMessageEvent, PrivateMessageEvent, exception
 
 from src.libraries.userenvs import *
 
@@ -190,3 +190,42 @@ async def _outputcsv(bot: Bot, event: PrivateMessageEvent):
         pass
     except Exception as e:
         print(repr(e))
+
+whitellist_path = 'src/static/whitelist.txt'
+joingroup = on_request()
+@joingroup.handle()
+async def _joingroup(bot: Bot,event: Event):
+    whitelist = {}
+    try:
+        file = open(whitellist_path,"r",encoding='utf-8')
+        for line in file:
+            aline = line.strip().split("=")
+            whitelist[aline[0]] = int(aline[1])
+        file.close()
+    except:
+        print("白名单文件读取失败")
+        return
+    data = eval(event.get_event_description())
+    qq = str(data["user_id"])
+    if qq in whitelist:
+        if whitelist[qq] == 1:
+            await bot.call_api('set_group_add_request',**{
+            'flag': data['flag'],
+            'sub_type': data['sub_type'],
+            'approve': True
+            })
+            whitelist[qq] = 0
+            whiteliststr = ''
+            for qq in whitelist:
+                whiteliststr += qq
+                whiteliststr += "="
+                whiteliststr += str(whitelist[qq])
+                whiteliststr += "\n"
+                file = open(whitellist_path,"w",encoding='utf-8')
+                file.write(whiteliststr)
+                file.close()
+            print(qq + "加群申请已通过")
+        else:
+            print(qq + "在白名单中，但入群标记已经为0")
+    else:
+        print(qq + "不在白名单中")
