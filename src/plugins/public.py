@@ -191,10 +191,12 @@ async def _outputcsv(bot: Bot, event: PrivateMessageEvent):
     except Exception as e:
         print(repr(e))
 
-whitellist_path = 'src/static/whitelist.txt'
+static_path = 'src/static/'
 joingroup = on_request()
 @joingroup.handle()
 async def _joingroup(bot: Bot,event: Event):
+    data = eval(event.get_event_description())
+    whitellist_path = static_path + str(data['group_id']) + '.txt'
     whitelist = {}
     try:
         file = open(whitellist_path,"r",encoding='utf-8')
@@ -205,7 +207,6 @@ async def _joingroup(bot: Bot,event: Event):
     except:
         print("白名单文件读取失败")
         return
-    data = eval(event.get_event_description())
     qq = str(data["user_id"])
     if qq in whitelist:
         if whitelist[qq] == 1:
